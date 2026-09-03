@@ -49,7 +49,7 @@
     "build": "tsup",
     "typecheck": "tsc --noEmit",
     "dev": "tsup --watch",
-    "prepare": "npm run build",
+    "prepack": "npm run build",
     "test": "node --test test/*.test.mjs"
   },
   "peerDependencies": {
