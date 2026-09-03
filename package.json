@@ -1,0 +1,69 @@
+{
+  "name": "pi-caido",
+  "version": "1.0.0",
+  "description": "Pi Coding Agent extension to route traffic through Caido web proxy and consume Caido MCP tools",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "pi",
+    "caido",
+    "mcp",
+    "model-context-protocol",
+    "web-security",
+    "proxy",
+    "pentest",
+    "appsec"
+  ],
+  "author": "KanyCrew",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/KanyCrew/pi-caido.git"
+  },
+  "bugs": {
+    "url": "https://github.com/KanyCrew/pi-caido/issues"
+  },
+  "homepage": "https://github.com/KanyCrew/pi-caido#readme",
+  "pi": {
+    "extensions": [
+      "./dist/index.js"
+    ]
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "dev": "tsup --watch",
+    "prepare": "npm run build",
+    "test": "node --test test/*.test.mjs"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    },
+    "typebox": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "^0.84.4",
+    "@types/node": "^22.13.0",
+    "tsup": "^8.3.6",
+    "typebox": "^1.1.38",
+    "typescript": "^5.7.3"
+  }
+}
