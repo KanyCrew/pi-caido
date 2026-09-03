@@ -14,7 +14,7 @@ function textResult(text: string) {
 }
 
 /**
- * Register built-in Caido security tools into Pi.
+ * Register built-in Caido security tools into Pi with rich prompt guidelines for the agent.
  */
 export function registerCaidoTools(
   pi: ExtensionAPI,
@@ -26,6 +26,11 @@ export function registerCaidoTools(
     name: "caido_status",
     label: "Caido Status",
     description: "Check the status of Caido web proxy, MCP server connection, and discovered tools.",
+    promptSnippet: "Check Caido proxy and MCP connectivity.",
+    promptGuidelines: [
+      "Call caido_status first if you are unsure whether Caido web proxy or MCP is connected.",
+      "If disconnected, suggest the user run `/caido connect` or verify Caido is running.",
+    ],
     parameters: Type.Object({}),
     execute: async () => {
       const isMcpConnected = client.connected;
@@ -51,6 +56,12 @@ export function registerCaidoTools(
     label: "Caido List Requests",
     description:
       'Search and list HTTP requests recorded by Caido proxy. Supports HTTPQL filters (e.g., req.host.eq:"example.com", req.status.eq:200, req.method.eq:"POST").',
+    promptSnippet: "Search and filter Caido proxy HTTP history with HTTPQL.",
+    promptGuidelines: [
+      "Use caido_list_requests to find captured traffic before executing external requests.",
+      'Filter with HTTPQL syntax: req.host.eq:"domain", req.path.starts_with:"/api", req.status.eq:200, req.method.eq:"POST".',
+      'Combine filters using boolean operators, e.g.: req.host.contains:"target" and resp.status.eq:200',
+    ],
     parameters: Type.Object({
       filter: Type.Optional(Type.String({ description: 'HTTPQL filter query (e.g. req.host.eq:"api.target.com")' })),
       limit: Type.Optional(Type.Integer({ description: "Maximum number of requests to return (default: 20)", default: 20 })),
@@ -79,6 +90,11 @@ export function registerCaidoTools(
     name: "caido_get_request",
     label: "Caido Get Request",
     description: "Retrieve full HTTP request and response details (headers, body, URL, status) by request IDs.",
+    promptSnippet: "Retrieve full HTTP headers and bodies for request IDs from Caido history.",
+    promptGuidelines: [
+      "Use caido_get_request after caido_list_requests to inspect full headers, parameters, and bodies.",
+      "Set includeBody: true to view response bodies (JSON, HTML, etc.).",
+    ],
     parameters: Type.Object({
       ids: Type.Array(Type.String({ description: "Request IDs to inspect" })),
       includeBody: Type.Optional(Type.Boolean({ description: "Include request/response bodies", default: true })),
@@ -109,6 +125,12 @@ export function registerCaidoTools(
     name: "caido_send_request",
     label: "Caido Send Request",
     description: "Send a raw HTTP request through Caido proxy or trigger a Replay task.",
+    promptSnippet: "Dispatch or replay custom raw HTTP requests through Caido.",
+    promptGuidelines: [
+      "Provide complete raw HTTP format: `METHOD /path HTTP/1.1\\r\\nHost: example.com\\r\\n\\r\\nBody`.",
+      "Set tls: true for HTTPS endpoints, tls: false for HTTP endpoints.",
+      "All requests sent with this tool will be logged in Caido's Replay / History for auditing.",
+    ],
     parameters: Type.Object({
       raw: Type.String({ description: "Full raw HTTP request string including headers and body" }),
       host: Type.Optional(Type.String({ description: "Target host (overrides Host header if needed)" })),
@@ -141,6 +163,12 @@ export function registerCaidoTools(
     name: "caido_create_finding",
     label: "Caido Create Finding",
     description: "Record a newly discovered security vulnerability or finding into Caido.",
+    promptSnippet: "Log security vulnerabilities and findings directly into Caido dashboard.",
+    promptGuidelines: [
+      "Call caido_create_finding whenever you identify an actionable security issue (IDOR, SQLi, info leak, etc.).",
+      "Include clear reproduction steps and impact in the description.",
+      "Associate the requestId to link the finding with the concrete HTTP request evidence in Caido.",
+    ],
     parameters: Type.Object({
       title: Type.String({ description: "Title of the vulnerability or observation" }),
       description: Type.String({ description: "Detailed description, impact, and reproduction steps" }),
@@ -176,6 +204,10 @@ export function registerCaidoTools(
     name: "caido_list_scopes",
     label: "Caido List Scopes",
     description: "List target scope definitions configured in Caido (allowlist and denylist patterns).",
+    promptSnippet: "View in-scope and out-of-scope target rules configured in Caido.",
+    promptGuidelines: [
+      "Always check caido_list_scopes before active testing to ensure target domains are authorized.",
+    ],
     parameters: Type.Object({}),
     execute: async () => {
       if (!client.connected) {
@@ -198,6 +230,11 @@ export function registerCaidoTools(
     label: "Caido Call MCP Tool",
     description:
       "Execute any of the 81 native Caido MCP tools by name (e.g. list_tamper_rules, get_sitemap_entries_by_ids, query_replay_sessions, list_websocket_streams, get_httpql_help).",
+    promptSnippet: "Call any of Caido's 81 advanced native MCP tools directly.",
+    promptGuidelines: [
+      "Use caido_call_mcp for advanced Caido operations not covered by curated tools.",
+      "Useful tools: list_tamper_rules, test_tamper_rule, list_sitemap_roots, get_sitemap_entries_by_ids, query_replay_sessions, list_websocket_streams, get_httpql_help.",
+    ],
     parameters: Type.Object({
       toolName: Type.String({ description: "Exact Caido MCP tool name" }),
       arguments: Type.Optional(Type.Record(Type.String(), Type.Any(), { description: "Arguments object for the tool" })),

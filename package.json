@@ -1,6 +1,6 @@
 {
   "name": "pi-caido",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Pi Coding Agent extension to route traffic through Caido web proxy and consume Caido MCP tools",
   "type": "module",
   "main": "dist/index.js",
@@ -9,6 +9,7 @@
   "files": [
     "dist",
     "src",
+    "skills",
     "README.md",
     "LICENSE",
     "CHANGELOG.md"
@@ -16,6 +17,7 @@
   "keywords": [
     "pi-package",
     "pi-extension",
+    "pi-skill",
     "pi",
     "caido",
     "mcp",
@@ -38,6 +40,9 @@
   "pi": {
     "extensions": [
       "./dist/index.js"
+    ],
+    "skills": [
+      "./skills"
     ]
   },
   "scripts": {

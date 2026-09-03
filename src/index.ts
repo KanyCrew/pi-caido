@@ -1,3 +1,5 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { loadConfig } from "./config.js";
 import { CaidoMcpClient } from "./mcp-client.js";
@@ -6,6 +8,7 @@ import { registerCaidoTools } from "./tools.js";
 import { registerCaidoCommands } from "./commands.js";
 
 const STATUS_KEY = "caido";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
  * Pi Extension entry point for Caido integration.
@@ -29,6 +32,14 @@ export default async function (pi: ExtensionAPI): Promise<void> {
       ctx.ui.setStatus(STATUS_KEY, `Caido: ⚪ Offline${proxyIndicator}`);
     }
   };
+
+  // Expose bundled Caido skills documentation to Pi resource discovery
+  pi.on("resources_discover", async () => {
+    const skillsDir = path.resolve(__dirname, "../skills");
+    return {
+      skillPaths: [skillsDir],
+    };
+  });
 
   // Register tools into Pi
   registerCaidoTools(pi, client, proxy);
