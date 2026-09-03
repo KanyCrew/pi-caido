@@ -2,10 +2,6 @@
 node_modules/
 .pnpm-store/
 
-# Output & distribution
-dist/
-*.tsbuildinfo
-
 # Logs & scratch
 logs/
 *.log
