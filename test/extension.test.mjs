@@ -60,10 +60,18 @@ test("CaidoMcpClient connects and discovers tools on local Caido", async () => {
     assert.ok(res.toolCount > 0);
     assert.equal(client.connected, true);
     assert.ok(client.availableTools.length > 0);
+
+    // Test get_requests_by_ids with serialization schema
+    const details = await client.callTool("get_requests_by_ids", {
+      ids: ["1578"],
+      serialization: { include_body: true },
+    });
+    assert.ok(details.content && details.content.length > 0);
+    assert.notEqual(details.isError, true);
+
     client.disconnect();
     assert.equal(client.connected, false);
   } catch (err) {
-    // If Caido is not running in CI, this test safely checks fallback
     console.log("Local Caido MCP test skipped or unreachable:", err.message);
   }
 });

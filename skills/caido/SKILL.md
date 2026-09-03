@@ -16,19 +16,19 @@ This skill guides the AI assistant on how to effectively use the **Caido Web Sec
 
 ---
 
-## 2. Available Tools & Decision Guide
+## 2. Available Tools & Exact Parameter Guide
 
-When interacting with Caido, choose the right tool for the task:
+When interacting with Caido, use these verified tools:
 
-| Task | Recommended Tool | Example Usage |
+| Tool | Purpose | Schema / Arguments |
 |---|---|---|
-| Check if Caido MCP & Proxy are running | `caido_status` | Call `caido_status()` before executing complex queries |
-| Search intercepted requests | `caido_list_requests` | `filter: 'req.host.eq:"api.target.com" and resp.status.eq:200'` |
-| View headers & body of a request | `caido_get_request` | `ids: ["123", "124"], includeBody: true` |
-| Dispatch/replay a custom HTTP request | `caido_send_request` | `raw: "GET /api/user HTTP/1.1\r\nHost: target.com\r\n\r\n"` |
-| Report a security issue/finding | `caido_create_finding` | `title: "IDOR on /user/profile", requestId: "123"` |
-| Check allowed/blocked targets | `caido_list_scopes` | Call `caido_list_scopes()` to confirm target is in scope |
-| Use any of the 81 native Caido tools | `caido_call_mcp` | `toolName: "get_sitemap_entries_by_ids", arguments: {...}` |
+| `caido_status` | Check MCP & Proxy health | `{}` |
+| `caido_list_requests` | Search HTTP history via HTTPQL | `{ filter: 'req.host.eq:"example.com"', limit: 20 }` |
+| `caido_get_request` | View full headers & body of requests | `{ ids: ["1578"], include_body: true }` |
+| `caido_send_requests` | Replay saved requests by ID | `{ ids: ["1578"], save: true }` |
+| `caido_create_finding` | Record vulnerability in Caido dashboard | `{ title: "...", description: "...", request_id: "1578", reporter: "Pi" }` |
+| `caido_list_scopes` | View allowed/denied target patterns | `{}` |
+| `caido_call_mcp` | Execute any of the 81 native tools | `{ toolName: "...", arguments: {...} }` |
 
 ---
 
@@ -68,34 +68,26 @@ Caido uses **HTTPQL** to filter HTTP traffic. When calling `caido_list_requests(
 1. Run `caido_status` to verify that Caido MCP is online.
 2. Run `caido_list_scopes` to inspect targets defined in the workspace.
 3. Query recent endpoints with `caido_list_requests(filter: 'req.host.contains:"target"')`.
-4. Inspect the exact authentication and payload with `caido_get_request(ids: ["<id>"], includeBody: true)`.
+4. Inspect the exact authentication and payload with `caido_get_request(ids: ["1578"], include_body: true)`.
 
-### Workflow B: Testing a Vulnerability & Logging a Finding
-1. Retrieve the baseline request using `caido_get_request(ids: ["<id>"])`.
-2. Craft the modified exploit payload and send it via `caido_send_request(raw: "...", host: "...")`.
-3. If the vulnerability is confirmed (e.g. SQLi, IDOR, SSRF, Information Disclosure), document it immediately using:
+### Workflow B: Replaying Requests & Logging Findings
+1. Retrieve request ID from history or baseline with `caido_list_requests`.
+2. Replay the request through Caido using `caido_send_requests(ids: ["1578"], save: true)`.
+3. If a vulnerability is confirmed, document it immediately using:
    ```json
    {
-     "title": "IDOR - Access to another user data",
-     "description": "Sending request with ID 456 returns profile data of tenant B without authorization.",
-     "requestId": "123"
+     "title": "IDOR on /user/profile",
+     "description": "Sending request with ID 1578 returns unauthorized data.",
+     "request_id": "1578",
+     "reporter": "Pi Coding Agent"
    }
    ```
-   This persists the finding into the user's Caido dashboard for reporting.
-
-### Workflow C: Advanced Caido Features (`caido_call_mcp`)
-If you need capabilities beyond standard request inspection, invoke `caido_call_mcp` with any of Caido's native tool names:
-- **Tamper Rules**: `list_tamper_rule_collections`, `test_tamper_rule`, `toggle_tamper_rule`
-- **Replay Sessions**: `query_replay_sessions`, `create_replay_session`, `start_replay_task`
-- **Sitemap**: `list_sitemap_roots`, `list_sitemap_descendants`, `get_sitemap_entries_by_ids`
-- **WebSockets / SSE**: `list_websocket_streams`, `list_websocket_messages`, `get_websocket_messages_by_ids`
-- **Environments**: `list_environments`, `get_environment_variable`, `set_environment_variable`
+   This persists the finding into the user's Caido dashboard.
 
 ---
 
-## 5. Slash Commands in Pi TUI
-The user can also manage the extension interactively:
-- `/caido status`: Check MCP & proxy status
-- `/caido proxy on [url]`: Route Pi traffic through Caido
-- `/caido proxy off`: Disable proxy routing
-- `/caido tools`: View all discovered tools
+## 5. Known Server-Side Quirks & Workarounds
+
+- **`query_replay_sessions`**: Caido's native backend has an upstream GraphQL schema bug (`Unknown field "collection" on type "ReplaySession"`).  
+  **Workaround**: Use `caido_call_mcp(toolName: "list_replay_collections_detailed", arguments: { first: 10 })` or `get_replay_session` / `create_replay_session` instead.
+- **Replaying raw HTTP**: For raw HTTP tampering without pre-existing request IDs, use `caido_call_mcp(toolName: "start_replay_task", arguments: { items: [{ session_id: "...", raw_base64: "...", connection: { host: "...", port: 443, is_tls: true } }] })`.

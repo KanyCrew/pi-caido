@@ -1,6 +1,6 @@
 {
   "name": "pi-caido",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Pi Coding Agent extension to route traffic through Caido web proxy and consume Caido MCP tools",
   "type": "module",
   "main": "dist/index.js",

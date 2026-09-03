@@ -85,7 +85,7 @@ export function registerCaidoTools(
     },
   });
 
-  // 3. Get Details of Specific Requests
+  // 3. Get Details of Specific Requests (Fixed schema for Caido get_requests_by_ids)
   pi.registerTool({
     name: "caido_get_request",
     label: "Caido Get Request",
@@ -93,23 +93,25 @@ export function registerCaidoTools(
     promptSnippet: "Retrieve full HTTP headers and bodies for request IDs from Caido history.",
     promptGuidelines: [
       "Use caido_get_request after caido_list_requests to inspect full headers, parameters, and bodies.",
-      "Set includeBody: true to view response bodies (JSON, HTML, etc.).",
+      "Pass array of request IDs: ids: ['1578']. Set include_body: true to view response bodies.",
     ],
     parameters: Type.Object({
-      ids: Type.Array(Type.String({ description: "Request IDs to inspect" })),
-      includeBody: Type.Optional(Type.Boolean({ description: "Include request/response bodies", default: true })),
+      ids: Type.Array(Type.String({ description: "Request IDs to inspect (e.g. ['1578'])" })),
+      include_body: Type.Optional(Type.Boolean({ description: "Include request/response bodies (default: true)", default: true })),
+      max_text_body_chars: Type.Optional(Type.Integer({ description: "Maximum text body characters to return (default: 4000)", default: 4000 })),
     }),
-    execute: async (_id, params: { ids: string[]; includeBody?: boolean }) => {
+    execute: async (_id, params: { ids: string[]; include_body?: boolean; max_text_body_chars?: number }) => {
       if (!client.connected) {
         return textResult("Error: Not connected to Caido MCP server. Run /caido connect first.");
       }
 
       try {
         const result = await client.callTool("get_requests_by_ids", {
-          ids: params.ids,
-          include: params.includeBody
-            ? ["requestHeaders", "requestBody", "responseHeaders", "responseBody"]
-            : ["requestHeaders", "responseHeaders"],
+          ids: params.ids.map(String),
+          serialization: {
+            include_body: params.include_body ?? true,
+            max_text_body_chars: params.max_text_body_chars ?? 4000,
+          },
         });
 
         const text = result.content?.map((c) => c.text).filter(Boolean).join("\n") || "No details returned.";
@@ -120,34 +122,31 @@ export function registerCaidoTools(
     },
   });
 
-  // 4. Send or Replay HTTP Request
+  // 4. Send or Replay HTTP Request by ID (Fixed schema for Caido send_requests)
   pi.registerTool({
-    name: "caido_send_request",
-    label: "Caido Send Request",
-    description: "Send a raw HTTP request through Caido proxy or trigger a Replay task.",
-    promptSnippet: "Dispatch or replay custom raw HTTP requests through Caido.",
+    name: "caido_send_requests",
+    label: "Caido Send Requests",
+    description: "Replay and send saved HTTP requests by ID through Caido.",
+    promptSnippet: "Replay saved HTTP requests by ID through Caido.",
     promptGuidelines: [
-      "Provide complete raw HTTP format: `METHOD /path HTTP/1.1\\r\\nHost: example.com\\r\\n\\r\\nBody`.",
-      "Set tls: true for HTTPS endpoints, tls: false for HTTP endpoints.",
-      "All requests sent with this tool will be logged in Caido's Replay / History for auditing.",
+      "Pass request IDs to replay: ids: ['1578'].",
+      "Set save: true to store the new replayed request/response in Caido history.",
     ],
     parameters: Type.Object({
-      raw: Type.String({ description: "Full raw HTTP request string including headers and body" }),
-      host: Type.Optional(Type.String({ description: "Target host (overrides Host header if needed)" })),
-      port: Type.Optional(Type.Integer({ description: "Target port (default 443 for HTTPS, 80 for HTTP)" })),
-      tls: Type.Optional(Type.Boolean({ description: "Whether to use TLS/HTTPS (default: true)", default: true })),
+      ids: Type.Array(Type.String({ description: "Saved request IDs to send/replay (e.g. ['1578'])" })),
+      save: Type.Optional(Type.Boolean({ description: "Whether to save the replayed request into Caido history (default: true)", default: true })),
+      include_body: Type.Optional(Type.Boolean({ description: "Include response body in result (default: true)", default: true })),
     }),
-    execute: async (_id, params: { raw: string; host?: string; port?: number; tls?: boolean }) => {
+    execute: async (_id, params: { ids: string[]; save?: boolean; include_body?: boolean }) => {
       if (!client.connected) {
         return textResult("Error: Not connected to Caido MCP server. Run /caido connect first.");
       }
 
       try {
         const result = await client.callTool("send_requests", {
-          raw: params.raw,
-          host: params.host,
-          port: params.port,
-          tls: params.tls ?? true,
+          ids: params.ids.map(String),
+          options: { save: params.save ?? true },
+          serialization: { include_body: params.include_body ?? true },
         });
 
         const text = result.content?.map((c) => c.text).filter(Boolean).join("\n") || "Request dispatched.";
@@ -158,7 +157,7 @@ export function registerCaidoTools(
     },
   });
 
-  // 5. Create Security Finding in Caido
+  // 5. Create Security Finding in Caido (Fixed schema mapping for Caido create_finding)
   pi.registerTool({
     name: "caido_create_finding",
     label: "Caido Create Finding",
@@ -167,28 +166,34 @@ export function registerCaidoTools(
     promptGuidelines: [
       "Call caido_create_finding whenever you identify an actionable security issue (IDOR, SQLi, info leak, etc.).",
       "Include clear reproduction steps and impact in the description.",
-      "Associate the requestId to link the finding with the concrete HTTP request evidence in Caido.",
+      "Associate the request_id (string ID of the saved request) and reporter.",
     ],
     parameters: Type.Object({
       title: Type.String({ description: "Title of the vulnerability or observation" }),
       description: Type.String({ description: "Detailed description, impact, and reproduction steps" }),
-      requestId: Type.Optional(Type.String({ description: "Associated Caido request ID" })),
+      request_id: Type.String({ description: "Associated Caido saved request ID (e.g. '1578')" }),
+      reporter: Type.Optional(Type.String({ description: "Reporter identifier (default: 'Pi Coding Agent')", default: "Pi Coding Agent" })),
+      dedupe_key: Type.Optional(Type.String({ description: "Optional deduplication key" })),
     }),
-    execute: async (_id, params: { title: string; description: string; requestId?: string }) => {
+    execute: async (_id, params: { title: string; description: string; request_id: string; reporter?: string; dedupe_key?: string }) => {
       if (!client.connected) {
         return textResult("Error: Not connected to Caido MCP server. Run /caido connect first.");
       }
 
       try {
+        const targetRequestId = String(params.request_id || (params as any).requestId);
+        const item: Record<string, any> = {
+          title: params.title,
+          description: params.description || "",
+          reporter: params.reporter || "Pi Coding Agent",
+          request_id: targetRequestId,
+        };
+        if (params.dedupe_key) {
+          item.dedupe_key = params.dedupe_key;
+        }
+
         const result = await client.callTool("create_finding", {
-          items: [
-            {
-              title: params.title,
-              description: params.description,
-              requestId: params.requestId,
-              reporter: "Pi Coding Agent",
-            },
-          ],
+          items: [item],
         });
 
         const text = result.content?.map((c) => c.text).filter(Boolean).join("\n") || "Finding successfully created.";
@@ -233,7 +238,8 @@ export function registerCaidoTools(
     promptSnippet: "Call any of Caido's 81 advanced native MCP tools directly.",
     promptGuidelines: [
       "Use caido_call_mcp for advanced Caido operations not covered by curated tools.",
-      "Useful tools: list_tamper_rules, test_tamper_rule, list_sitemap_roots, get_sitemap_entries_by_ids, query_replay_sessions, list_websocket_streams, get_httpql_help.",
+      "Useful tools: list_tamper_rules, test_tamper_rule, list_sitemap_roots, get_sitemap_entries_by_ids, list_websocket_streams, get_httpql_help.",
+      "Note: query_replay_sessions has a known Caido server-side GraphQL bug; use list_replay_collections_detailed instead.",
     ],
     parameters: Type.Object({
       toolName: Type.String({ description: "Exact Caido MCP tool name" }),
