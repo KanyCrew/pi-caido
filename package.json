@@ -1,6 +1,6 @@
 {
   "name": "pi-caido",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Pi Coding Agent extension to route traffic through Caido web proxy and consume Caido MCP tools",
   "type": "module",
   "main": "dist/index.js",
@@ -10,6 +10,7 @@
     "dist",
     "src",
     "skills",
+    "assets",
     "README.md",
     "LICENSE",
     "CHANGELOG.md"
@@ -31,19 +32,23 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/KanyCrew/pi-caido.git"
+    "url": "git+https://github.com/KanyCrew/pi-caido.git"
   },
   "bugs": {
     "url": "https://github.com/KanyCrew/pi-caido/issues"
   },
   "homepage": "https://github.com/KanyCrew/pi-caido#readme",
+  "publishConfig": {
+    "access": "public"
+  },
   "pi": {
     "extensions": [
       "./dist/index.js"
     ],
     "skills": [
       "./skills"
-    ]
+    ],
+    "image": "https://raw.githubusercontent.com/KanyCrew/pi-caido/main/assets/preview.png"
   },
   "scripts": {
     "build": "tsup",
@@ -53,11 +58,19 @@
     "test": "node --test test/*.test.mjs"
   },
   "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
     "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
     "typebox": "*"
   },
   "peerDependenciesMeta": {
+    "@earendil-works/pi-ai": {
+      "optional": true
+    },
     "@earendil-works/pi-coding-agent": {
+      "optional": true
+    },
+    "@earendil-works/pi-tui": {
       "optional": true
     },
     "typebox": {

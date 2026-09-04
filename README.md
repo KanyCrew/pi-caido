@@ -1,8 +1,13 @@
 # pi-caido
 
+<p align="center">
+  <img src="assets/preview.png" alt="pi-caido banner" width="100%" />
+</p>
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Pi Extension](https://img.shields.io/badge/Pi-Extension-8A2BE2.svg)](https://pi.dev)
 [![Caido MCP](https://img.shields.io/badge/Caido-MCP%20Ready-00C49F.svg)](https://caido.io)
+[![NPM Version](https://img.shields.io/npm/v/pi-caido.svg)](https://www.npmjs.com/package/pi-caido)
 
 An official-grade extension for the **Pi Coding Agent** (`pi`) that attaches the agent to the **Caido Web Security Proxy** and consumes Caido's built-in **Model Context Protocol (MCP)** server over Streamable HTTP.
 
