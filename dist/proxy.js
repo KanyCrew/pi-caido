@@ -1,3 +1,39 @@
+// src/config.ts
+import fs from "fs";
+import path from "path";
+import os from "os";
+var GLOBAL_CONFIG_PATH = path.join(os.homedir(), ".pi", "agent", "caido.json");
+function normalizePortOrUrl(input, defaultPath = "") {
+  if (typeof input === "number") {
+    return `http://127.0.0.1:${input}${defaultPath}`;
+  }
+  const str = String(input).trim();
+  if (!str) return "";
+  if (/^\d+$/.test(str)) {
+    return `http://127.0.0.1:${str}${defaultPath}`;
+  }
+  if (/^:\d+$/.test(str)) {
+    return `http://127.0.0.1${str}${defaultPath}`;
+  }
+  if (!str.includes("://")) {
+    return `http://${str}`;
+  }
+  return str;
+}
+function extractPort(input) {
+  if (input === void 0 || input === null || input === "") return void 0;
+  if (typeof input === "number") return input;
+  const str = String(input).trim();
+  if (/^\d+$/.test(str)) return parseInt(str, 10);
+  try {
+    const url = new URL(str.includes("://") ? str : `http://${str}`);
+    if (url.port) return parseInt(url.port, 10);
+    return url.protocol === "https:" ? 443 : 80;
+  } catch {
+    return void 0;
+  }
+}
+
 // src/proxy.ts
 var CaidoProxyManager = class {
   state = {
@@ -6,9 +42,9 @@ var CaidoProxyManager = class {
     previousEnv: {}
   };
   constructor(config) {
-    this.state.url = config.proxyUrl;
+    this.state.url = normalizePortOrUrl(config.proxyUrl || config.proxyPort || config.port || "http://127.0.0.1:8080");
     if (config.proxyEnabled) {
-      this.enable(config.proxyUrl, config.allowInsecureTls);
+      this.enable(this.state.url, config.allowInsecureTls);
     }
   }
   get isEnabled() {
@@ -17,11 +53,30 @@ var CaidoProxyManager = class {
   get proxyUrl() {
     return this.state.url;
   }
+  get port() {
+    return extractPort(this.state.url);
+  }
+  /**
+   * Set proxy port or URL and re-apply to environment if active.
+   */
+  setPort(portOrUrl) {
+    const newUrl = normalizePortOrUrl(portOrUrl);
+    this.state.url = newUrl;
+    if (this.state.enabled) {
+      process.env.HTTP_PROXY = newUrl;
+      process.env.HTTPS_PROXY = newUrl;
+      process.env.http_proxy = newUrl;
+      process.env.https_proxy = newUrl;
+      process.env.ALL_PROXY = newUrl;
+      process.env.all_proxy = newUrl;
+    }
+    return this.state;
+  }
   /**
    * Route outgoing requests from Pi and tools through Caido proxy.
    */
-  enable(url, allowInsecureTls = true) {
-    const targetUrl = url || this.state.url;
+  enable(urlOrPort, allowInsecureTls = true) {
+    const targetUrl = urlOrPort !== void 0 ? normalizePortOrUrl(urlOrPort) : this.state.url;
     this.state.url = targetUrl;
     if (!this.state.enabled) {
       this.state.previousEnv = {

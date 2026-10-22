@@ -6,6 +6,12 @@ interface CaidoConfig {
     mcpUrl: string;
     /** Caido upstream web proxy URL (default: "http://127.0.0.1:8080") */
     proxyUrl: string;
+    /** Port alias for Caido proxy service (e.g. 9080 or "9080") */
+    port?: number | string;
+    /** Explicit proxy port (e.g. 9080 or "9080") */
+    proxyPort?: number | string;
+    /** Explicit MCP port (e.g. 3333 or "3333") */
+    mcpPort?: number | string;
     /** Whether web proxy interception is enabled for Pi (default: false) */
     proxyEnabled: boolean;
     /** Optional API token for Caido */

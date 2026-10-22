@@ -2,6 +2,7 @@ import { Type } from "typebox";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { CaidoMcpClient } from "./mcp-client.js";
 import type { CaidoProxyManager } from "./proxy.js";
+import { saveGlobalConfig } from "./config.js";
 
 /**
  * Helper to construct a standard text result for Pi.
@@ -37,16 +38,72 @@ export function registerCaidoTools(
       const mcpInfo = client.info;
       const toolCount = client.availableTools.length;
       const proxyStatus = proxy.getStatusText();
+      const proxyPort = proxy.port ? ` (Port ${proxy.port})` : "";
 
       const output = [
         "=== Caido Status ===",
         `MCP Server: ${isMcpConnected ? "🟢 Connected" : "🔴 Disconnected"}`,
         mcpInfo ? `Server: ${mcpInfo.name} (v${mcpInfo.version})` : "Server: Unknown",
         `Available MCP Tools: ${toolCount}`,
-        `Web Proxy: ${proxyStatus}`,
+        `Web Proxy: ${proxyStatus}${proxyPort}`,
+        `Proxy Target URL: ${proxy.proxyUrl}`,
       ].join("\n");
 
       return textResult(output);
+    },
+  });
+
+  // 1b. Port Configuration Tool
+  pi.registerTool({
+    name: "caido_set_port",
+    label: "Caido Set Port",
+    description: "Configure network port for Caido proxy or MCP service (e.g. set proxy port to 9080).",
+    promptSnippet: "Change Caido proxy or MCP service port (e.g. 9080).",
+    promptGuidelines: [
+      "Use caido_set_port when Caido is listening on a custom port like 9080.",
+      "Service can be 'proxy', 'mcp', or 'all' (default: 'proxy').",
+    ],
+    parameters: Type.Object({
+      port: Type.Union([Type.Number(), Type.String()], { description: "Port number (e.g. 9080)" }),
+      service: Type.Optional(Type.Union([Type.Literal("proxy"), Type.Literal("mcp"), Type.Literal("all")], { description: "Target service ('proxy', 'mcp', or 'all', default: 'proxy')", default: "proxy" })),
+      save: Type.Optional(Type.Boolean({ description: "Persist configuration to global ~/.pi/agent/caido.json (default: true)", default: true })),
+    }),
+    execute: async (_id, params: { port: number | string; service?: "proxy" | "mcp" | "all"; save?: boolean }) => {
+      const rawPortStr = String(params.port).trim().replace(/^:/, "");
+      const portNum = parseInt(rawPortStr, 10);
+      if (!portNum || isNaN(portNum)) {
+        return textResult(`Invalid port specified: ${params.port}`);
+      }
+
+      const service = params.service || "proxy";
+      const shouldSave = params.save ?? true;
+      const lines: string[] = [];
+
+      if (service === "proxy" || service === "all") {
+        const state = proxy.setPort(portNum);
+        if (shouldSave) {
+          saveGlobalConfig({ proxyUrl: state.url, proxyPort: portNum, port: portNum });
+        }
+        lines.push(`✅ Caido proxy port updated to ${portNum} (URL: ${state.url})`);
+        lines.push(`   Traffic interception: ${state.enabled ? "🟢 Active" : "⚪ Inactive (run /caido proxy on to route)"}`);
+      }
+
+      if (service === "mcp" || service === "all") {
+        const mcpUrl = `http://127.0.0.1:${portNum}/mcp`;
+        client.updateConfig({ mcpUrl });
+        if (shouldSave) {
+          saveGlobalConfig({ mcpUrl, mcpPort: portNum });
+        }
+        lines.push(`✅ Caido MCP endpoint updated to ${mcpUrl}`);
+        try {
+          await client.connect();
+          lines.push(`   Reconnected to Caido MCP server successfully (${client.availableTools.length} tools available).`);
+        } catch (err: any) {
+          lines.push(`   Note: MCP reconnection failed: ${err.message}`);
+        }
+      }
+
+      return textResult(lines.join("\n"));
     },
   });
 

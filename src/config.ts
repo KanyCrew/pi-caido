@@ -16,6 +16,50 @@ export const DEFAULT_CONFIG: CaidoConfig = {
 };
 
 /**
+ * Normalizes a port number or URL string into a complete HTTP URL.
+ * Examples:
+ *   9080 -> "http://127.0.0.1:9080"
+ *   "9080" -> "http://127.0.0.1:9080"
+ *   ":9080" -> "http://127.0.0.1:9080"
+ *   "127.0.0.1:9080" -> "http://127.0.0.1:9080"
+ *   "http://127.0.0.1:9080" -> "http://127.0.0.1:9080"
+ */
+export function normalizePortOrUrl(input: string | number, defaultPath = ""): string {
+  if (typeof input === "number") {
+    return `http://127.0.0.1:${input}${defaultPath}`;
+  }
+  const str = String(input).trim();
+  if (!str) return "";
+  if (/^\d+$/.test(str)) {
+    return `http://127.0.0.1:${str}${defaultPath}`;
+  }
+  if (/^:\d+$/.test(str)) {
+    return `http://127.0.0.1${str}${defaultPath}`;
+  }
+  if (!str.includes("://")) {
+    return `http://${str}`;
+  }
+  return str;
+}
+
+/**
+ * Extract integer port from URL or port representation.
+ */
+export function extractPort(input?: string | number): number | undefined {
+  if (input === undefined || input === null || input === "") return undefined;
+  if (typeof input === "number") return input;
+  const str = String(input).trim();
+  if (/^\d+$/.test(str)) return parseInt(str, 10);
+  try {
+    const url = new URL(str.includes("://") ? str : `http://${str}`);
+    if (url.port) return parseInt(url.port, 10);
+    return url.protocol === "https:" ? 443 : 80;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Load configuration merged from global file, local directory file, and env vars.
  */
 export function loadConfig(cwd: string = process.cwd()): CaidoConfig {
@@ -44,17 +88,43 @@ export function loadConfig(cwd: string = process.cwd()): CaidoConfig {
 
   // 3. Environment variables take precedence
   const envMcpUrl = process.env.CAIDO_MCP_URL;
+  const envMcpPort = process.env.CAIDO_MCP_PORT;
   const envProxyUrl = process.env.CAIDO_PROXY_URL;
+  const envProxyPort = process.env.CAIDO_PROXY_PORT || process.env.CAIDO_PORT;
   const envApiKey = process.env.CAIDO_API_KEY;
   const envProxyEnabled = process.env.CAIDO_PROXY_ENABLED;
+
+  const rawProxy =
+    envProxyUrl ||
+    (envProxyPort ? normalizePortOrUrl(envProxyPort) : undefined) ||
+    fileConfig.proxyUrl ||
+    (fileConfig.proxyPort ? normalizePortOrUrl(fileConfig.proxyPort) : undefined) ||
+    (fileConfig.port ? normalizePortOrUrl(fileConfig.port) : undefined) ||
+    DEFAULT_CONFIG.proxyUrl;
+
+  const rawMcp =
+    envMcpUrl ||
+    (envMcpPort ? normalizePortOrUrl(envMcpPort, "/mcp") : undefined) ||
+    fileConfig.mcpUrl ||
+    (fileConfig.mcpPort ? normalizePortOrUrl(fileConfig.mcpPort, "/mcp") : undefined) ||
+    DEFAULT_CONFIG.mcpUrl;
+
+  const resolvedProxyUrl = normalizePortOrUrl(rawProxy);
+  const resolvedMcpUrl = normalizePortOrUrl(rawMcp, "/mcp");
 
   return {
     ...DEFAULT_CONFIG,
     ...fileConfig,
-    mcpUrl: envMcpUrl || fileConfig.mcpUrl || DEFAULT_CONFIG.mcpUrl,
-    proxyUrl: envProxyUrl || fileConfig.proxyUrl || DEFAULT_CONFIG.proxyUrl,
+    proxyUrl: resolvedProxyUrl,
+    mcpUrl: resolvedMcpUrl,
+    proxyPort: extractPort(resolvedProxyUrl),
+    port: extractPort(resolvedProxyUrl),
+    mcpPort: extractPort(resolvedMcpUrl),
     apiKey: envApiKey || fileConfig.apiKey,
-    proxyEnabled: envProxyEnabled !== undefined ? envProxyEnabled === "1" || envProxyEnabled === "true" : (fileConfig.proxyEnabled ?? DEFAULT_CONFIG.proxyEnabled),
+    proxyEnabled:
+      envProxyEnabled !== undefined
+        ? envProxyEnabled === "1" || envProxyEnabled === "true"
+        : (fileConfig.proxyEnabled ?? DEFAULT_CONFIG.proxyEnabled),
   };
 }
 

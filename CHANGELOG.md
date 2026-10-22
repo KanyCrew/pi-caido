@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.4] - 2026-10-22
+
+### Added
+- **Flexible Service Port Configuration**: Support setting Caido service ports (e.g. `9080`) easily across CLI commands, config files, environment variables, and LLM agent tools.
+- **Port Slash Commands**:
+  - `/caido port <port>`: Configure and persist Caido proxy port (e.g. `/caido port 9080`).
+  - `/caido mcp-port <port>`: Configure and persist Caido MCP server port (e.g. `/caido mcp-port 3333`).
+  - `/caido proxy on [port|url]` & `/caido connect [port|url]`: Accept bare port numbers (`9080`, `3333`) and automatically normalize them to valid URLs.
+- **`caido_set_port` Tool**: Allows AI agents to adjust proxy or MCP port dynamically during engagements.
+- **Environment Variables**: Added support for `CAIDO_PORT`, `CAIDO_PROXY_PORT`, and `CAIDO_MCP_PORT`.
+- **Status Reporting**: `/caido status` and `caido_status` tool now explicitly display active proxy and MCP ports.
+
 ## [1.0.3] - 2026-09-04
 
 ### Added

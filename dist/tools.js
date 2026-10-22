@@ -1,5 +1,29 @@
 // src/tools.ts
 import { Type } from "typebox";
+
+// src/config.ts
+import fs from "fs";
+import path from "path";
+import os from "os";
+var GLOBAL_CONFIG_PATH = path.join(os.homedir(), ".pi", "agent", "caido.json");
+function saveGlobalConfig(partial) {
+  try {
+    const dir = path.dirname(GLOBAL_CONFIG_PATH);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    let existing = {};
+    if (fs.existsSync(GLOBAL_CONFIG_PATH)) {
+      existing = JSON.parse(fs.readFileSync(GLOBAL_CONFIG_PATH, "utf-8"));
+    }
+    const updated = { ...existing, ...partial };
+    fs.writeFileSync(GLOBAL_CONFIG_PATH, JSON.stringify(updated, null, 2), "utf-8");
+  } catch (err) {
+    console.error(`[pi-caido] Failed to save config to ${GLOBAL_CONFIG_PATH}:`, err);
+  }
+}
+
+// src/tools.ts
 function textResult(text) {
   return {
     content: [{ type: "text", text }],
@@ -22,14 +46,64 @@ function registerCaidoTools(pi, client, proxy) {
       const mcpInfo = client.info;
       const toolCount = client.availableTools.length;
       const proxyStatus = proxy.getStatusText();
+      const proxyPort = proxy.port ? ` (Port ${proxy.port})` : "";
       const output = [
         "=== Caido Status ===",
         `MCP Server: ${isMcpConnected ? "\u{1F7E2} Connected" : "\u{1F534} Disconnected"}`,
         mcpInfo ? `Server: ${mcpInfo.name} (v${mcpInfo.version})` : "Server: Unknown",
         `Available MCP Tools: ${toolCount}`,
-        `Web Proxy: ${proxyStatus}`
+        `Web Proxy: ${proxyStatus}${proxyPort}`,
+        `Proxy Target URL: ${proxy.proxyUrl}`
       ].join("\n");
       return textResult(output);
+    }
+  });
+  pi.registerTool({
+    name: "caido_set_port",
+    label: "Caido Set Port",
+    description: "Configure network port for Caido proxy or MCP service (e.g. set proxy port to 9080).",
+    promptSnippet: "Change Caido proxy or MCP service port (e.g. 9080).",
+    promptGuidelines: [
+      "Use caido_set_port when Caido is listening on a custom port like 9080.",
+      "Service can be 'proxy', 'mcp', or 'all' (default: 'proxy')."
+    ],
+    parameters: Type.Object({
+      port: Type.Union([Type.Number(), Type.String()], { description: "Port number (e.g. 9080)" }),
+      service: Type.Optional(Type.Union([Type.Literal("proxy"), Type.Literal("mcp"), Type.Literal("all")], { description: "Target service ('proxy', 'mcp', or 'all', default: 'proxy')", default: "proxy" })),
+      save: Type.Optional(Type.Boolean({ description: "Persist configuration to global ~/.pi/agent/caido.json (default: true)", default: true }))
+    }),
+    execute: async (_id, params) => {
+      const rawPortStr = String(params.port).trim().replace(/^:/, "");
+      const portNum = parseInt(rawPortStr, 10);
+      if (!portNum || isNaN(portNum)) {
+        return textResult(`Invalid port specified: ${params.port}`);
+      }
+      const service = params.service || "proxy";
+      const shouldSave = params.save ?? true;
+      const lines = [];
+      if (service === "proxy" || service === "all") {
+        const state = proxy.setPort(portNum);
+        if (shouldSave) {
+          saveGlobalConfig({ proxyUrl: state.url, proxyPort: portNum, port: portNum });
+        }
+        lines.push(`\u2705 Caido proxy port updated to ${portNum} (URL: ${state.url})`);
+        lines.push(`   Traffic interception: ${state.enabled ? "\u{1F7E2} Active" : "\u26AA Inactive (run /caido proxy on to route)"}`);
+      }
+      if (service === "mcp" || service === "all") {
+        const mcpUrl = `http://127.0.0.1:${portNum}/mcp`;
+        client.updateConfig({ mcpUrl });
+        if (shouldSave) {
+          saveGlobalConfig({ mcpUrl, mcpPort: portNum });
+        }
+        lines.push(`\u2705 Caido MCP endpoint updated to ${mcpUrl}`);
+        try {
+          await client.connect();
+          lines.push(`   Reconnected to Caido MCP server successfully (${client.availableTools.length} tools available).`);
+        } catch (err) {
+          lines.push(`   Note: MCP reconnection failed: ${err.message}`);
+        }
+      }
+      return textResult(lines.join("\n"));
     }
   });
   pi.registerTool({

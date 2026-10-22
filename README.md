@@ -101,7 +101,8 @@ pi -e ./dist/index.js
 ```json
 {
   "mcpUrl": "http://127.0.0.1:3333/mcp",
-  "proxyUrl": "http://127.0.0.1:8080",
+  "proxyUrl": "http://127.0.0.1:9080",
+  "port": 9080,
   "proxyEnabled": false,
   "timeoutMs": 15000,
   "allowInsecureTls": true
@@ -112,8 +113,10 @@ pi -e ./dist/index.js
 
 | Variable | Default | Description |
 |---|---|---|
+| `CAIDO_PORT` / `CAIDO_PROXY_PORT` | `8080` | Caido upstream proxy port (e.g. `9080`) |
+| `CAIDO_PROXY_URL` | `http://127.0.0.1:8080` | Full Caido upstream proxy URL |
+| `CAIDO_MCP_PORT` | `3333` | Caido MCP server port |
 | `CAIDO_MCP_URL` | `http://127.0.0.1:3333/mcp` | Caido Streamable HTTP MCP endpoint |
-| `CAIDO_PROXY_URL` | `http://127.0.0.1:8080` | Caido upstream proxy address |
 | `CAIDO_PROXY_ENABLED` | `false` | Enable proxy routing on startup (`1` or `true`) |
 | `CAIDO_API_KEY` | *(optional)* | Authorization bearer token for Caido |
 
@@ -125,12 +128,14 @@ Inside Pi interactive mode, use the `/caido` slash command:
 
 | Command | Description |
 |---|---|
-| `/caido status` | View MCP connection health, server info, tool count, and proxy status |
-| `/caido connect [url]` | Connect or reconnect to the Caido MCP server |
+| `/caido status` | View MCP connection health, server info, tool count, and active proxy port/URL |
+| `/caido port <port>` | Set Caido proxy port (e.g. `/caido port 9080`) and persist to settings |
+| `/caido mcp-port <port>` | Set Caido MCP port (e.g. `/caido mcp-port 3333`) and reconnect |
+| `/caido connect [port\|url]` | Connect to Caido MCP server (e.g. `/caido connect 3333` or full URL) |
 | `/caido disconnect` | Disconnect from Caido MCP |
-| `/caido proxy on [url]` | Route outgoing Pi traffic through Caido intercepting proxy |
+| `/caido proxy on [port\|url]` | Route outgoing Pi traffic through Caido (e.g. `/caido proxy on 9080`) |
 | `/caido proxy off` | Restore direct network routing |
-| `/caido proxy status` | Show current proxy routing state |
+| `/caido proxy status` | Show current proxy routing state and configured port |
 | `/caido tools` | List all discovered tools from Caido |
 | `/caido help` | Show the interactive command guide |
 
@@ -142,10 +147,11 @@ When the extension is loaded, Pi's model can call these tools:
 
 | Tool Name | Description |
 |---|---|
-| `caido_status` | Check MCP and web proxy connection status and health. |
+| `caido_status` | Check MCP and web proxy connection status, active ports, and health. |
+| `caido_set_port` | Configure the network port for Caido proxy or MCP services (e.g. `port: 9080`). |
 | `caido_list_requests` | Search HTTP requests in Caido using HTTPQL filters (e.g. `req.host.eq:"api.target.com"`). |
 | `caido_get_request` | Inspect full request and response headers and bodies by request ID. |
-| `caido_send_request` | Send raw HTTP requests or trigger replay tasks through Caido. |
+| `caido_send_requests` | Replay saved HTTP requests by ID through Caido. |
 | `caido_create_finding` | Record security findings and vulnerabilities directly in Caido. |
 | `caido_list_scopes` | Retrieve configured allowlist and denylist scope definitions. |
 | `caido_call_mcp` | Execute any of the 81 native Caido MCP tools dynamically (e.g. `list_tamper_rules`, `get_sitemap_entries_by_ids`). |

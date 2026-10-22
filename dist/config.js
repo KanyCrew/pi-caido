@@ -12,6 +12,36 @@ var DEFAULT_CONFIG = {
   toolPrefix: "caido_",
   allowInsecureTls: true
 };
+function normalizePortOrUrl(input, defaultPath = "") {
+  if (typeof input === "number") {
+    return `http://127.0.0.1:${input}${defaultPath}`;
+  }
+  const str = String(input).trim();
+  if (!str) return "";
+  if (/^\d+$/.test(str)) {
+    return `http://127.0.0.1:${str}${defaultPath}`;
+  }
+  if (/^:\d+$/.test(str)) {
+    return `http://127.0.0.1${str}${defaultPath}`;
+  }
+  if (!str.includes("://")) {
+    return `http://${str}`;
+  }
+  return str;
+}
+function extractPort(input) {
+  if (input === void 0 || input === null || input === "") return void 0;
+  if (typeof input === "number") return input;
+  const str = String(input).trim();
+  if (/^\d+$/.test(str)) return parseInt(str, 10);
+  try {
+    const url = new URL(str.includes("://") ? str : `http://${str}`);
+    if (url.port) return parseInt(url.port, 10);
+    return url.protocol === "https:" ? 443 : 80;
+  } catch {
+    return void 0;
+  }
+}
 function loadConfig(cwd = process.cwd()) {
   let fileConfig = {};
   try {
@@ -32,14 +62,23 @@ function loadConfig(cwd = process.cwd()) {
     console.warn(`[pi-caido] Could not read project-local config at ${cwd}:`, err);
   }
   const envMcpUrl = process.env.CAIDO_MCP_URL;
+  const envMcpPort = process.env.CAIDO_MCP_PORT;
   const envProxyUrl = process.env.CAIDO_PROXY_URL;
+  const envProxyPort = process.env.CAIDO_PROXY_PORT || process.env.CAIDO_PORT;
   const envApiKey = process.env.CAIDO_API_KEY;
   const envProxyEnabled = process.env.CAIDO_PROXY_ENABLED;
+  const rawProxy = envProxyUrl || (envProxyPort ? normalizePortOrUrl(envProxyPort) : void 0) || fileConfig.proxyUrl || (fileConfig.proxyPort ? normalizePortOrUrl(fileConfig.proxyPort) : void 0) || (fileConfig.port ? normalizePortOrUrl(fileConfig.port) : void 0) || DEFAULT_CONFIG.proxyUrl;
+  const rawMcp = envMcpUrl || (envMcpPort ? normalizePortOrUrl(envMcpPort, "/mcp") : void 0) || fileConfig.mcpUrl || (fileConfig.mcpPort ? normalizePortOrUrl(fileConfig.mcpPort, "/mcp") : void 0) || DEFAULT_CONFIG.mcpUrl;
+  const resolvedProxyUrl = normalizePortOrUrl(rawProxy);
+  const resolvedMcpUrl = normalizePortOrUrl(rawMcp, "/mcp");
   return {
     ...DEFAULT_CONFIG,
     ...fileConfig,
-    mcpUrl: envMcpUrl || fileConfig.mcpUrl || DEFAULT_CONFIG.mcpUrl,
-    proxyUrl: envProxyUrl || fileConfig.proxyUrl || DEFAULT_CONFIG.proxyUrl,
+    proxyUrl: resolvedProxyUrl,
+    mcpUrl: resolvedMcpUrl,
+    proxyPort: extractPort(resolvedProxyUrl),
+    port: extractPort(resolvedProxyUrl),
+    mcpPort: extractPort(resolvedMcpUrl),
     apiKey: envApiKey || fileConfig.apiKey,
     proxyEnabled: envProxyEnabled !== void 0 ? envProxyEnabled === "1" || envProxyEnabled === "true" : fileConfig.proxyEnabled ?? DEFAULT_CONFIG.proxyEnabled
   };
@@ -62,7 +101,9 @@ function saveGlobalConfig(partial) {
 }
 export {
   DEFAULT_CONFIG,
+  extractPort,
   loadConfig,
+  normalizePortOrUrl,
   saveGlobalConfig
 };
 //# sourceMappingURL=config.js.map

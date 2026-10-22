@@ -5,10 +5,15 @@ declare class CaidoProxyManager {
     constructor(config: CaidoConfig);
     get isEnabled(): boolean;
     get proxyUrl(): string;
+    get port(): number | undefined;
+    /**
+     * Set proxy port or URL and re-apply to environment if active.
+     */
+    setPort(portOrUrl: number | string): ProxyState;
     /**
      * Route outgoing requests from Pi and tools through Caido proxy.
      */
-    enable(url?: string, allowInsecureTls?: boolean): ProxyState;
+    enable(urlOrPort?: string | number, allowInsecureTls?: boolean): ProxyState;
     /**
      * Restore previous proxy settings.
      */

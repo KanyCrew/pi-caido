@@ -1,4 +1,5 @@
 import type { CaidoConfig, ProxyState } from "./types.js";
+import { normalizePortOrUrl, extractPort } from "./config.js";
 
 export class CaidoProxyManager {
   private state: ProxyState = {
@@ -8,9 +9,9 @@ export class CaidoProxyManager {
   };
 
   constructor(config: CaidoConfig) {
-    this.state.url = config.proxyUrl;
+    this.state.url = normalizePortOrUrl(config.proxyUrl || config.proxyPort || config.port || "http://127.0.0.1:8080");
     if (config.proxyEnabled) {
-      this.enable(config.proxyUrl, config.allowInsecureTls);
+      this.enable(this.state.url, config.allowInsecureTls);
     }
   }
 
@@ -22,11 +23,32 @@ export class CaidoProxyManager {
     return this.state.url;
   }
 
+  public get port(): number | undefined {
+    return extractPort(this.state.url);
+  }
+
+  /**
+   * Set proxy port or URL and re-apply to environment if active.
+   */
+  public setPort(portOrUrl: number | string): ProxyState {
+    const newUrl = normalizePortOrUrl(portOrUrl);
+    this.state.url = newUrl;
+    if (this.state.enabled) {
+      process.env.HTTP_PROXY = newUrl;
+      process.env.HTTPS_PROXY = newUrl;
+      process.env.http_proxy = newUrl;
+      process.env.https_proxy = newUrl;
+      process.env.ALL_PROXY = newUrl;
+      process.env.all_proxy = newUrl;
+    }
+    return this.state;
+  }
+
   /**
    * Route outgoing requests from Pi and tools through Caido proxy.
    */
-  public enable(url?: string, allowInsecureTls = true): ProxyState {
-    const targetUrl = url || this.state.url;
+  public enable(urlOrPort?: string | number, allowInsecureTls = true): ProxyState {
+    const targetUrl = urlOrPort !== undefined ? normalizePortOrUrl(urlOrPort) : this.state.url;
     this.state.url = targetUrl;
 
     if (!this.state.enabled) {

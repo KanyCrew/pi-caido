@@ -22,7 +22,8 @@ When interacting with Caido, use these verified tools:
 
 | Tool | Purpose | Schema / Arguments |
 |---|---|---|
-| `caido_status` | Check MCP & Proxy health | `{}` |
+| `caido_status` | Check MCP & Proxy health and configured ports | `{}` |
+| `caido_set_port` | Set proxy or MCP service port (e.g. 9080) | `{ port: 9080, service: "proxy", save: true }` |
 | `caido_list_requests` | Search HTTP history via HTTPQL | `{ filter: 'req.host.eq:"example.com"', limit: 20 }` |
 | `caido_get_request` | View full headers & body of requests | `{ ids: ["1578"], include_body: true }` |
 | `caido_send_requests` | Replay saved requests by ID | `{ ids: ["1578"], save: true }` |
